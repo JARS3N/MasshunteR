@@ -78,11 +78,17 @@ for(c in 1:ncol(datWide)){
     datWide[1,c]=colname
   }
 }
+  
+  
+  
+  
+  
+  
 
 # Concatenate rows containing parameters + compounds to the form parameter.compound for conversion with reshape() 
-datWide[1,] <- paste(datWide[2,], datWide[1,],sep = ".")
-colnames(datWide) <- datWide[1, ]
-datWide = datWide[-1:-2,]
+datWide<-datWide %>% 
+{setNames(.,paste(.[2,], .[1,],sep = "."))} %>% 
+  slice(.,-1*c(1:2))
 
 # Replace column header names and remove columns that are not needed or not informative 
 setnames(datWide, old=c(".Sample","Data File.Sample", "Name.Sample", "Acq. Date-Time.Sample", "Type.Sample"), new=c("QuantWarning","SampleFileName","SampleName", "AcqTime", "SampleTypeMethod"))
