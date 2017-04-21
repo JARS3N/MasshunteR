@@ -88,11 +88,11 @@ for(c in 1:ncol(datWide)){
 # Concatenate rows containing parameters + compounds to the form parameter.compound for conversion with reshape() 
 datWide<-datWide %>% 
 {setNames(.,paste(.[2,], .[1,],sep = "."))} %>% 
-  slice(.,-1*c(1:2))
-
+  slice(.,-1*c(1:2)) %>%
 # Replace column header names and remove columns that are not needed or not informative 
-setnames(datWide, old=c(".Sample","Data File.Sample", "Name.Sample", "Acq. Date-Time.Sample", "Type.Sample"), new=c("QuantWarning","SampleFileName","SampleName", "AcqTime", "SampleTypeMethod"))
-datWide = datWide[, !names(datWide) %in% c("NA.Sample","Level.Sample")]
+setnames(., old=c(".Sample","Data File.Sample", "Name.Sample", "Acq. Date-Time.Sample", "Type.Sample"),
+         new=c("QuantWarning","SampleFileName","SampleName", "AcqTime", "SampleTypeMethod")) %>% 
+          select(., -NA.Sample,-Level.Sample)
 
 # Transform wide to long (tidy) table format
 datLong=reshape(datWide,idvar = "SampleFileName", varying = colnames(datWide[,-1:-count]), direction = "long",sep = "." )
@@ -100,7 +100,7 @@ row.names(datLong) <- NULL
 setnames(datLong, old=c("time"), new=c("Compound"))
 
 # Covert to data.table object and change column types
-### Converting them is unnecessary if you act manipulate the object with dplyr functions
+### Converting them is unnecessary if you manipulate the object with dplyr functions
 datWide <- dplyr::tbl_df(datWide)
 dat <- datLong %>% 
   mutate_each(.,funs(numeric),
