@@ -58,8 +58,9 @@ library(xlsx)
 # Read Agilent MassHunter Quant Export file (CSV)
 datWide <- read.csv("20160615_Pred_ACTH_Original_Data.csv", header = FALSE, sep = ",", na.strings=c("#N/A", "NULL"), check.names=FALSE, as.is=TRUE, strip.white=TRUE )
 mapISTD <- read.csv("CompoundISTDList_SLING-PL-Panel_V1.csv", header = TRUE, sep = ",", check.names=TRUE, as.is=TRUE, strip.white = TRUE)
-ISTDDetails <- read.xlsx("ISTD-map-conc_SLING-PL-Panel_V1.xlsx", sheetIndex = 2)
-ISTDDetails$ISTD <- trimws(ISTDDetails$ISTD)
+ISTDDetails <- read.xlsx("ISTD-map-conc_SLING-PL-Panel_V1.xlsx", sheetIndex = 2) %>%
+               mutate(.,ISTD=trimws(ISTD))
+
 
 datWide[1,] <- lapply(datWide[1,],function(y) gsub(" Results","",y))
 if(datWide[2,2]=="" & !is.na(datWide[2,2])){
@@ -79,13 +80,9 @@ for(c in 1:ncol(datWide)){
   }
 }
   
-  
-  
-  
-  
-  
-
+ 
 # Concatenate rows containing parameters + compounds to the form parameter.compound for conversion with reshape() 
+### I think this is a little cleaner
 datWide<-datWide %>% 
 {setNames(.,paste(.[2,], .[1,],sep = "."))} %>% 
   slice(.,-1*c(1:2)) %>%
@@ -101,6 +98,7 @@ setnames(datLong, old=c("time"), new=c("Compound"))
 
 # Covert to data.table object and change column types
 ### Converting them is unnecessary if you manipulate the object with dplyr functions
+### This cleans up a few lines here
 datWide <- dplyr::tbl_df(datWide)
 dat <- datLong %>% 
   mutate_each(.,funs(numeric),
@@ -205,10 +203,11 @@ dat[,ngml := apply(dat,1,ngmlValue)]
 # Assuming 3 factors... (can this be made flexible, assuming all samples names are consistent?)
 #expGrp = c("FactorA", "FactorB", "FactorC")
 
-datSamples <- dat %>% filter(SampleType =="Sample")  
-datSamples <- separate(datSamples,col = SampleName, into = expGrp, convert=TRUE, remove=FALSE, sep ="-")
+datSamples <- dat %>% filter(SampleType =="Sample")  %>%
+  separate(.,col = SampleName, into = expGrp, convert=TRUE, remove=FALSE, sep ="-")
+### unclear what is located @ datSamples[[4]] and how it is known to be ParameterA
 datSamples$ParameterA <- gsub("^.*?_","",datSamples[[4]]) 
-# Change all Parameters Columns to factors
+### Change all Parameters Columns to factors
 datSamples<- datSamples %>%
   mutate_each(.,funs(factor),contains("Parameter"))
 
@@ -220,6 +219,7 @@ datSamples<- datSamples %>%
 # Wrapper function for t.test p-value which returns NA instead of an error if the data is invalid
 # e.g. insufficient data points now return NA instead of throwing an error
 # Function by Tony Plate at https://stat.ethz.ch/pipermail/r-help/2008-February/154167.html
+### conisder using tryCatch instead
 my.t.test.p.value <- function(...) {
   obj<-try(t.test(...,paired=TRUE), silent=TRUE)
   if (is(obj, "try-error")) return(NA) else return(obj$p.value)
