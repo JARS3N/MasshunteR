@@ -71,12 +71,12 @@ if(datWide[2,2]=="" & !is.na(datWide[2,2])){
 
 # Fill in compound name in empty columns (different parameters of the same compound)
 for(c in 1:ncol(datWide)){
-    val = datWide[1,c]
-    if((!is.na(val)) && nchar(val,keepNA = TRUE) > 0 ){
-      colname=val
-    } else {
-      datWide[1,c]=colname
-    }
+  val = datWide[1,c]
+  if((!is.na(val)) && nchar(val,keepNA = TRUE) > 0 ){
+    colname=val
+  } else {
+    datWide[1,c]=colname
+  }
 }
 
 # Concatenate rows containing parameters + compounds to the form parameter.compound for conversion with reshape() 
@@ -94,13 +94,19 @@ row.names(datLong) <- NULL
 setnames(datLong, old=c("time"), new=c("Compound"))
 
 # Covert to data.table object and change column types
-dat <- dplyr::tbl_df(datLong)
+### Converting them is unnecessary if you act manipulate the object with dplyr functions
 datWide <- dplyr::tbl_df(datWide)
-numCol <- c("RT","Area","Height", "FWHM")
-dat[, names(dat) %in% numCol] <- lapply(dat[,names(dat) %in% numCol], as.numeric)
-factCol <- c("QuantWarning","SampleName","SampleFileName","SampleTypeMethod")
-dat[, names(dat) %in% factCol] <- lapply(dat[,names(dat) %in% factCol], as.factor)
-dat$Compound <- trimws(dat$Compound)
+dat <- datLong %>% 
+  mutate_each(.,funs(numeric),
+              matches("RT|Area|Height|FWHM")) %>% 
+  mutate_each(.,funs(factor),
+              matches("QuantWarning|SampleName|SampleFileName|SampleTypeMethod")) %>% 
+  mutate(Compound=trimws(Compound))
+
+
+
+
+
 ###################################################################################################################
 # ISTD normalization and calculation of absolute concentrations
 ###################################################################################################################
@@ -195,12 +201,10 @@ dat[,ngml := apply(dat,1,ngmlValue)]
 
 datSamples <- dat %>% filter(SampleType =="Sample")  
 datSamples <- separate(datSamples,col = SampleName, into = expGrp, convert=TRUE, remove=FALSE, sep ="-")
-datSamples$ParameterA <- gsub("^.*?_","",datSamples[[4]])
-
-# necessary? (can this be made flexible, in case there are more factors, e.g. using col indices?)   
-datSamples$ParameterA <- as.factor(datSamples$ParameterA)
-datSamples$ParameterB <- as.factor(datSamples$ParameterB)
-datSamples$ParameterC <- as.factor(datSamples$ParameterC)
+datSamples$ParameterA <- gsub("^.*?_","",datSamples[[4]]) 
+# Change all Parameters Columns to factors
+datSamples<- datSamples %>%
+  mutate_each(.,funs(factor),contains("Parameter"))
 
 # Basic statistics: mean +/- SD, t Test...
 # ------------------------------------------
@@ -211,8 +215,8 @@ datSamples$ParameterC <- as.factor(datSamples$ParameterC)
 # e.g. insufficient data points now return NA instead of throwing an error
 # Function by Tony Plate at https://stat.ethz.ch/pipermail/r-help/2008-February/154167.html
 my.t.test.p.value <- function(...) {
-    obj<-try(t.test(...,paired=TRUE), silent=TRUE)
-    if (is(obj, "try-error")) return(NA) else return(obj$p.value)
+  obj<-try(t.test(...,paired=TRUE), silent=TRUE)
+  if (is(obj, "try-error")) return(NA) else return(obj$p.value)
 }
 
 
@@ -231,7 +235,7 @@ pValueFromGroup <- function(data){
 
 meanNormArea <- datSamples %>% filter(ParameterA %in% filterParameterA) %>%
   filter(NormArea!=1)
-  #group_by(Compound,ParameterB) #%>%
+#group_by(Compound,ParameterB) #%>%
 pVal <- by(meanNormArea, as.factor(meanNormArea$Compound),pValueFromGroup, simplify = TRUE)
 
 datFiltered <- datSamples %>% 
@@ -251,7 +255,7 @@ datSelected <- datSamples %>% group_by(Compound, ParameterA, ParameterB) %>%
 
 #### ......
 
-    
+
 # --------------------------------
 # Plots
 # --------------------------------
@@ -274,16 +278,16 @@ g <- ggplot(data=datSamples, mapping=aes(x = ParameterB, y = uM, group=FactorC, 
         legend.title=element_text(size=10, face="bold"),
         #legend.position=c(0.89,0.1),
         plot.title = element_text(size=16, lineheight=2, face="bold", margin=margin(b = 20, unit = "pt"))) +
-        annotate("text", x = 1.5, y = 1, label = "Some text")
+  annotate("text", x = 1.5, y = 1, label = "Some text")
 
-      
+
 ###############################
 # QC Plots
 ###############################      
-      
+
 # Plot retention time of all compounds in all samples
 # --------------------------------------------------
-       
+
 ggplot(data=datSelected, mapping=aes(x = SampleName, y = RT, color = SampleType)) +
   ggtitle("Retention Time") +
   geom_point(size = 3) +
@@ -299,10 +303,10 @@ ggplot(data=datSelected, mapping=aes(x = SampleName, y = RT, color = SampleType)
         legend.title=element_text(size=10, face="bold"),
         #legend.position=c(0.89,0.1),
         plot.title = element_text(size=16, lineheight=2, face="bold", margin=margin(b = 20, unit = "pt"))) +
-        annotate("text", x = 1.5, y = 1, label = "Some text")
+  annotate("text", x = 1.5, y = 1, label = "Some text")
 
 
-        
+
 # Plot peak areas of compounds in all QC samples
 # --------------------------------------------------     
 
